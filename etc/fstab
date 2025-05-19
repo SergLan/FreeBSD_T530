@@ -1,0 +1,11 @@
+# Device	Mountpoint	FStype	Options	Dump	Pass#
+/dev/ada0s1a	/		ufs	rw	1	1
+/dev/ada0s1b	none		swap	sw	0	0
+
+#exFAT
+/dev/ada0s2   /media/serg/exFAT   fusefs   rw,defaults,noauto,mountprog=/usr/local/sbin/mount.exfat   0   0
+
+# OpenJDK
+fdesc	/dev/fd		fdescfs		rw	0	0
+proc	/proc		procfs		rw	0	0
+

@@ -1,0 +1,2 @@
+Thinkpad T530
+

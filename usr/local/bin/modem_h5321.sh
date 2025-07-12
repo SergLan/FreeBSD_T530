@@ -7,7 +7,6 @@ MODEM_DEVICE="/dev/ttyU0"
 
 # ttyACM1 : H5321 gw Mobile Broadband Data Modem
 DATA_MODEM_DEVICE="/dev/ttyU1"
-
 # ttyACM2 : H5321 gw Mobile Broadband GPS Port
 GPS_DEVICE="/dev/ttyU2"
 
@@ -18,6 +17,20 @@ USB_ID="0bdb:1900"
 PIN=""
 APN="internet.digimobil.es"
 
+rm_lock() {
+	if [ -f /var/spool/lock/LCK..ttyU0 ]; then
+		rm /var/spool/lock/LCK..ttyU0
+	fi
+
+	if [ -f /var/spool/lock/LCK..ttyU1 ]; then
+		rm /var/spool/lock/LCK..ttyU1
+	fi
+
+	if [ -f /var/spool/lock/LCK..ttyU2 ]; then
+		rm /var/spool/lock/LCK..ttyU2
+	fi
+}
+
 printf "AT\r" | cu -l /dev/ttyU0 -s 115200
 sleep 2
 printf "AT\r" | cu -l /dev/ttyU1 -s 115200
@@ -25,30 +38,54 @@ sleep 2
 printf "AT\r" | cu -l /dev/ttyU2 -s 115200
 sleep 2
 
+rm_lock
+
 #NO PIN
 powerup_H5321 () {
 	printf "Turning on H5321 card on $MODEM_DEVICE Without PIN\n"
 	sleep 1
 	printf "AT+CPIN?\r" > $MODEM_DEVICE
-    timeout 4 cat < $MODEM_DEVICE
+  timeout 4 cat < $MODEM_DEVICE
 	printf "AT+CFUN=1\r" > $MODEM_DEVICE
 	timeout 4 cat < $MODEM_DEVICE
 	printf "done\n"
 	sleep 1
+	rm_lock
 }
+
+#PIN
+powerup_H5321_pin () {
+	printf "Turning on H5321 card on $MODEM_DEVICE With PIN\n"
+	sleep 1
+	printf "AT+CPIN?\r" > $MODEM_DEVICE
+  timeout 5 cat < $MODEM_DEVICE
+
+  printf "AT+CPIN="4445"\r" > $MODEM_DEVICE
+  timeout 5 cat < $MODEM_DEVICE
+
+	printf "AT+CFUN=1\r" > $MODEM_DEVICE
+	timeout 5 cat < $MODEM_DEVICE
+
+	printf "done\n"
+	sleep 1
+	rm_lock
+}
+
 
 powerdown_H5321 () {
 	printf "Turning off F3507g card...\n"
 	printf "AT+CFUN=4\r" > $MODEM_DEVICE
 	timeout 4 cat < $MODEM_DEVICE
 	printf "done\n"
+	rm_lock
 }
 
 configure_GPS () {
-    printf "Configure the GPS receiver to update every second and turn DGPS on,\n"
+  printf "Configure the GPS receiver to update every second and turn DGPS on,\n"
 	printf "AT*E2GPSCTL=$1,$2,$3\r" > $DATA_MODEM_DEVICE
-    timeout 5 cat < $DATA_MODEM_DEVICE
+  timeout 5 cat < $DATA_MODEM_DEVICE
 	printf "done\n"
+	rm_lock
 }
 
 #NMEA
@@ -61,6 +98,7 @@ turnon_GPS () {
 	printf "AT*E2GPSNPD\r" > $GPS_DEVICE
 	timeout 5 cat < $GPS_DEVICE
 	printf "done\n"
+	rm_lock
 }
 
 turnoff_GPS () {
@@ -74,20 +112,7 @@ turnoff_GPS () {
 	fi
 	printf "done\n"
 	sleep 5
-}
-
-turnon_WWAN () {
-	printf "Starting WWAN connection...\n"
-	/usr/bin/chat -v -s -t 5 "" "AT+CGDCONT=1,\"IP\",\"$APN\"" "OK" "AT*ENAP=1,1" "OK" > $MODEM_DEVICE < $MODEM_DEVICE
-	printf "done\n"
-	sleep 5
-}
-
-turnoff_WWAN () {
-	printf "Stopping WWAN connection...\n"
-	/usr/bin/chat -v -s -t 5 "" "AT*ENAP=0" "OK" > $MODEM_DEVICE < $MODEM_DEVICE
-	printf "done\n"
-	sleep 5
+	rm_lock
 }
 
 if [ ! -f /usr/local/sbin/gpsd ]; then
@@ -99,10 +124,11 @@ while true;
 do
 	printf "Select An Action: \n"
 	printf "1) Power Up Modem H5321\n"
-	printf "2) Turn On GPS\n"
-	printf "3) Power Down Modem H5321\n"
-	printf "4) Turn Off GPS\n"
-	printf "5) Exit\n"
+	printf "2) Power Up Modem H5321 With PIN\n"
+	printf "3) Turn On GPS\n"
+	printf "4) Power Down Modem H5321\n"
+	printf "5) Turn Off GPS\n"
+	printf "6) Exit\n"
 	printf "Enter number: "
 	read NUMBER
 
@@ -111,16 +137,20 @@ do
 			powerup_H5321
 			;;
 		2)
-			turnon_GPS
+			powerup_H5321_pin
 			;;
 		3)
-			powerdown_H5321
+			turnon_GPS
 			;;
 		4)
-			turnoff_GPS
+			powerdown_H5321
 			;;
 		5)
+			turnoff_GPS
+			;;
+		6)
 			printf "Exit From Menu.\n"
+			rm_lock
 			exit 0
 			;;
 		*)
